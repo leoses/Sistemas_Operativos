@@ -244,33 +244,53 @@ int
 extractTar(char tarName[])
 {
 	// Complete the function
+	//Abrimos el archivo del tar
 	FILE* tarFile= fopen(tarName,"r");
+	//Comprobamos que no ha habido error
+	if(tarfile == NULL) return EXIT_FAILURE;
 
 	int nFiles = 0;
+	//Creamos el header (devuelve por parametro el tamaño de nFiles)
 	stHeaderEntry* header = readHeader(tarFile, &nFiles);
+	//Comprobamos que no ha habido error
 	if(header == NULL)return EXIT_FAILURE;
 
+
+	//Creamos los nFiles que marca el Header
 	for(int i = 0; (i< nFiles); i++){
-		//char message[] = header[i].name;
+
 		FILE* archivo = fopen(header[i].name, "w");
 		if(archivo == NULL) return EXIT_FAILURE;
+
+		//1º Forma ->se nos olvido que teniamos el método copyInFile asi que lo hicimos de la
+		//forma 2 que se muestra ahí abajo. Con el método copyInFile se haría de esta forma 
 
 		//int bytesCopiados = copynFile(tarFile,archivo, header[i].size);
 		//if(bytesCopiados != header[i].size)return EXIT_FAILURE;
 		
+		//Forma 2
+		//Creamos un buffer en el que vamos a almacenar el contenido del archivo y
+		//reservamos memoria para el
 		char* buffer = malloc(sizeof(char)* header[i].size);
 
+		//leemos del archivo tarFile ese numero de bytes y comprobamos que se hayan leido todos
 		size_t bytesLeidos = fread(buffer, sizeof(char), header[i].size, tarFile);
 		if(bytesLeidos != header[i].size) return EXIT_FAILURE;
 		
+		//escribimos en el archivo correspondiente el numero de bytes que habiamos leido y 
+		//comprobamos que no haya habido ningun error
 		size_t bytesEscritos = fwrite(buffer,sizeof(char), header[i].size,archivo);
 		if(bytesEscritos != header[i].size) return EXIT_FAILURE;
 
+		//Liberamos la memoria que habiamos reservado
 		free(buffer);
+		//cerramos archivo
 		fclose(archivo);
 	}
 
+	//cerramos tar
 	fclose(tarFile);
 
+	//Si hemos llegado hasta aquí, extraido un tar con exito
 	return EXIT_SUCCESS;
 }
