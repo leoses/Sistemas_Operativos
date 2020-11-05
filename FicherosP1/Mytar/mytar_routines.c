@@ -247,7 +247,7 @@ extractTar(char tarName[])
 	//Abrimos el archivo del tar
 	FILE* tarFile= fopen(tarName,"r");
 	//Comprobamos que no ha habido error
-	if(tarfile == NULL) return EXIT_FAILURE;
+	if(tarFile == NULL) return EXIT_FAILURE;
 
 	int nFiles = 0;
 	//Creamos el header (devuelve por parametro el tamaño de nFiles)
