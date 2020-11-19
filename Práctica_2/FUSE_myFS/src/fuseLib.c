@@ -311,8 +311,39 @@ static int my_open(const char *path, struct fuse_file_info *fi)
 static int my_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
 {
 	//COMPLETAR
+    char buffer[BLOCK_SIZE_BYTES];
+    int bytes2Read = size, totalRead = 0;
+    NodeStruct *node = myFileSystem.nodes[fi->fh];
 
-	return 0;
+    //Comprobar que offset no sale fuera del fichero
+    if(offset > node->fileSize){
+        return -EDOM;
+    }
+
+    //bytes2Read = numero de bytes a leer (puede ser menor que size)
+    while (totalRead < bytes2Read) {
+        int i, currentBlock, offBlock;
+        //currentBlock = bloque f´ısico en la posici´on offset
+        currentBlock = node->blocks[offset / BLOCK_SIZE_BYTES];
+        //offBlock = desplazamiento en el bloque f´ısico correspondiente
+        offBlock = offset % BLOCK_SIZE_BYTES;
+        //buffer ← bloque currentblock del disco virtual
+        if( readBlock(&myFileSystem, currentBlock, &buffer)==-1 ) {
+            fprintf(stderr,"Error reading blocks in my_read\n");
+            return -EIO;
+        }
+
+        //copiar los bytes le´ıdos al buffer de salida buf
+         for(i = offBlock; (i < BLOCK_SIZE_BYTES) && (totalRead < size); i++) {
+            buf[i] = buffer[totalRead++];
+        }
+        //actualizar offset y totalRead
+        offset += (i - offBlock);
+
+    }
+
+    return totalRead;
+	
 }
 
 /**
@@ -504,33 +535,37 @@ static int my_unlink(const char *path)
 {
     int indexNode; int idxDir;
 
+    NodeStruct* node;
+
     //Buscamos el path del archivo en el sistema de ficheros
     if((idxDir = findFileByName(&myFileSystem, (char *)path + 1)) == -1) {
         return -ENOENT; //Si no lo encontramos, no seguimos
     }
 
     indexNode = myFileSystem.directory.files[idxDir].nodeIdx;
-    
-    if(resizeNode(indexNode, myFileSystem.nodes[indexNode]->fileSize) < 0){
+    node = myFileSystem.nodes[indexNode];
+    // Modify the size
+    if(resizeNode(myFileSystem.directory.files[idxDir].nodeIdx, 0) < 0)
         return -EIO;
-    }
 
     //Marcar la entrada de directorio como libre
     myFileSystem.directory.files[idxDir].freeFile = true;
     //Decrementar el contador de ficheros del directorio
     myFileSystem.directory.numFiles--;
     //Marcar el nodo-i como libre
-    myFileSystem.nodes[indexNode]->freeNode = true;
+    node->freeNode = true;
 
     //Incrementar el contador de nodos-i libres
     myFileSystem.numFreeNodes++;
 
     //Actualizar el directorio en el disco virtual
-
+    updateDirectory(&myFileSystem);
     //Actualizar el nodo-i en el disco virtual
+    updateNode(&myFileSystem,indexNode,node);
 
     //Liberar la memoria del nodo-i y actualizar la tabla
-
+    free(node);
+    myFileSystem.nodes[indexNode] = NULL;
 
 	// quitar el fprintf y COMPLETAR
 	//fprintf(stderr, "No implementada!!\n");
